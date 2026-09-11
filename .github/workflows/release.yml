@@ -11,6 +11,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 发布 Release 需要写权限（GITHUB_TOKEN 默认只读）
+    permissions:
+      contents: write
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
