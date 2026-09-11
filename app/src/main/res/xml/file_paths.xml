@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 可共享的路径。
+  引擎的下载目录在 App 外部私有目录 files/books 下（getExternalFilesDir(null)/books）。
+-->
+<paths>
+    <!-- 外部私有目录（/sdcard/Android/data/<pkg>/files/...） -->
+    <external-files-path name="books" path="books/" />
+    <!-- 内部私有目录兜底 -->
+    <files-path name="internal" path="." />
+</paths>
