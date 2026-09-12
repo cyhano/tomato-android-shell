@@ -126,8 +126,9 @@ fun DetailScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // 封面 + 基本信息
-        Row(modifier = Modifier.fillMaxWidth()) {
+        // 书籍信息卡（封面 + 基本信息）
+        GlassPanel(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth().padding(15.dp)) {
             val cover = detail.coverUrl?.let {
                 if (it.startsWith("http")) it else EngineManager.baseUrl + it
             }
@@ -136,7 +137,7 @@ fun DetailScreen(
                 contentDescription = detail.bookName,
                 modifier = Modifier
                     .size(110.dp, 150.dp)
-                    .clip(RoundedCornerShape(14.dp)),
+                    .clip(RoundedCornerShape(10.dp)),
                 contentScale = ContentScale.Crop,
             )
             Spacer(Modifier.width(14.dp))
@@ -177,20 +178,24 @@ fun DetailScreen(
                     )
                 }
             }
+            }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(12.dp))
 
-        // 章节范围：输入框与「下载」按钮同一行，避免键盘弹出时按钮被挡
-        Text(
-            text = "下载范围",
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        // 下载范围卡：输入框与「下载」按钮同一行，避免键盘弹出时按钮被挡
+        GlassPanel(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(15.dp)) {
+            Text(
+                text = "下载范围",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
             GlassPanel(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(16.dp),
@@ -220,24 +225,32 @@ fun DetailScreen(
                     )
                 }
             }
-            AccentButton(
-                text = if (downloading) "创建中…" else "下载",
-                enabled = !downloading,
-                height = 48.dp,
-                horizontalPadding = 22.dp,
-                onClick = onDownload,
+                AccentButton(
+                    text = if (downloading) "创建中…" else "下载",
+                    enabled = !downloading,
+                    height = 48.dp,
+                    horizontalPadding = 22.dp,
+                    onClick = onDownload,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            val total = detail.chapterCount ?: 0
+            Text(
+                text = "共 $total 章。" + (parseRangeHint(rangeText, total) ?: "留空则全部下载"),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "已下载过的章节会自动跳过，不会重复下载",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            }
         }
-        Spacer(Modifier.height(6.dp))
-        val total = detail.chapterCount ?: 0
-        Text(
-            text = "共 $total 章。" + (parseRangeHint(rangeText, total) ?: "留空则全部下载"),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
         error?.let {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 it,
                 color = MaterialTheme.colorScheme.error,
@@ -245,7 +258,7 @@ fun DetailScreen(
             )
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(12.dp))
 
         // 简介
         val desc = detail.description

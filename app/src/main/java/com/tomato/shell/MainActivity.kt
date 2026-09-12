@@ -1,20 +1,16 @@
 package com.tomato.shell
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,20 +29,27 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -59,13 +62,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tomato.shell.engine.EngineManager
 import com.tomato.shell.ui.AppViewModel
 import com.tomato.shell.ui.screens.DetailScreen
 import com.tomato.shell.ui.screens.DownloadScreen
 import com.tomato.shell.ui.screens.SearchScreen
+import com.tomato.shell.ui.theme.AccentButton
 import com.tomato.shell.ui.theme.AuroraBackground
+import com.tomato.shell.ui.theme.GlassButton
 import com.tomato.shell.ui.theme.GlassPanel
 import com.tomato.shell.ui.theme.GlassShape
 import com.tomato.shell.ui.theme.LocalGlassColors
@@ -73,15 +79,30 @@ import com.tomato.shell.ui.theme.TomatoShellTheme
 
 class MainActivity : ComponentActivity() {
 
+    /** 外部分享/粘贴进来的文本（状态形式，Compose 侧消费后清空） */
+    private val sharedText = androidx.compose.runtime.mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        sharedText.value = extractSharedText(intent)
         setContent {
             TomatoShellTheme {
-                App()
+                App(sharedText = sharedText)
             }
         }
     }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTask：已在栈顶时再收一次分享
+        sharedText.value = extractSharedText(intent)
+    }
+
+    private fun extractSharedText(intent: Intent?): String? =
+        if (intent?.action == Intent.ACTION_SEND) {
+            intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else null
 
     override fun onDestroy() {
         super.onDestroy()
@@ -91,13 +112,23 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun App() {
+private fun App(sharedText: androidx.compose.runtime.MutableState<String?>) {
     val vm: AppViewModel = viewModel()
     val engineReady by vm.engineReady.collectAsState()
     val engineStarting by vm.engineStarting.collectAsState()
     val engineVersion by vm.engineVersion.collectAsState()
     val openBookId by vm.openBookId.collectAsState()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+
+    // 消费外部分享的文本（分享到本 APP 的番茄链接/ID → 直接进详情页）
+    LaunchedEffect(sharedText.value) {
+        sharedText.value?.let {
+            vm.onExternalText(it)
+            sharedText.value = null
+        }
+    }
+
+    var showEngineSheet by rememberSaveable { mutableStateOf(false) }
 
     // 键盘弹出时把底栏收起来，输入不被遮挡
     val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -125,75 +156,107 @@ private fun App() {
             )
         } else {
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                EngineTopBar(
-                    ready = engineReady,
-                    starting = engineStarting,
-                    version = engineVersion,
-                )
                 Box(Modifier.weight(1f)) {
                     when (selectedTab) {
-                        // 搜索依赖引擎 API：未就绪时在页内提示启动进度
-                        0 -> if (engineReady) {
-                            SearchScreen(vm = vm, onBookClick = { vm.openDetail(it) })
-                        } else {
-                            EngineStartingPane(vm = vm)
-                        }
+                        // 主页：大标题 + 引擎状态大卡 + 搜索（未就绪时页内提示启动进度）
+                        0 -> SearchScreen(
+                            vm = vm,
+                            onBookClick = { vm.openDetail(it) },
+                            onStatusClick = { showEngineSheet = true },
+                            engineReady = engineReady,
+                            engineStarting = engineStarting,
+                            engineVersion = engineVersion,
+                        )
                         // 下载列表读本地磁盘，引擎未就绪也照常可用
                         1 -> DownloadScreen(vm = vm)
                     }
                 }
-            }
-            // 悬浮毛玻璃底栏：内容从它下面滚过
-            AnimatedVisibility(
-                visible = !imeVisible,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                enter = fadeIn() + slideInVertically { it / 2 },
-                exit = fadeOut() + slideOutVertically { it / 2 },
-            ) {
-                GlassNavBar(
-                    selected = selectedTab,
-                    onSelect = { selectedTab = it },
-                    modifier = Modifier.navigationBarsPadding().padding(bottom = 10.dp),
-                )
+                // 通栏纸底栏：键盘弹出时收起
+                if (!imeVisible) {
+                    GlassNavBar(selected = selectedTab, onSelect = { selectedTab = it })
+                }
             }
         }
     }
+
+    // 升级浮层必须声明在 AuroraBackground 之后，否则会被不透明背景盖住
+    if (showEngineSheet) {
+        EngineUpgradeSheet(vm = vm, currentVersion = engineVersion, onDismiss = {
+            vm.resetEngineUpdatePanel()
+            showEngineSheet = false
+        })
+    }
 }
 
-/** 顶栏：应用名 + 引擎状态胶囊（就绪绿点 / 启动中脉冲橙点 / 失败红点） */
+/**
+ * 主页顶部：超大应用标题 + 引擎状态大卡（Clash Meta「运行中」卡式样）。
+ * 就绪=主色底白字；启动中/失败=灰底。点卡片打开引擎升级浮层。
+ */
 @Composable
-private fun EngineTopBar(ready: Boolean, starting: Boolean, version: String) {
+internal fun HomeHeader(ready: Boolean, starting: Boolean, version: String, onStatusClick: () -> Unit) {
     val g = LocalGlassColors.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column(Modifier.fillMaxWidth()) {
         Text(
             text = "番茄下载",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 20.dp, top = 10.dp),
         )
-        GlassPanel(shape = GlassShape.pill, shadowElevation = 0.dp) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                val dotColor = when {
-                    ready -> g.ok
-                    starting -> g.warn
-                    else -> g.danger
-                }
-                if (starting) PulsingDot(dotColor) else StatusDot(dotColor)
+        Spacer(Modifier.height(16.dp))
+
+        val cardColor = when {
+            ready -> g.accentTop
+            else -> Color(0xFF8E9196)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .clip(GlassShape.card)
+                .background(cardColor)
+                .clickable(onClick = onStatusClick)
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            when {
+                starting -> CircularProgressIndicator(
+                    modifier = Modifier.size(30.dp),
+                    strokeWidth = 3.dp,
+                    color = Color.White,
+                )
+                ready -> Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp),
+                )
+                else -> Icon(
+                    Icons.Default.Cancel,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+            Column {
                 Text(
                     text = when {
-                        ready -> if (version.isBlank()) "引擎就绪" else "引擎就绪 $version"
-                        starting -> "引擎启动中"
-                        else -> "引擎失败"
+                        ready -> "引擎就绪"
+                        starting -> "正在启动下载引擎"
+                        else -> "引擎启动失败"
                     },
-                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = when {
+                        ready -> "v${version.ifBlank { "?" }} · 点按检查引擎升级"
+                        starting -> "首次启动需准备引擎文件，请稍候"
+                        else -> "点按查看升级与排查选项"
+                    },
+                    color = Color.White.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
@@ -218,17 +281,21 @@ private fun PulsingDot(color: Color) {
     Box(Modifier.size(7.dp).clip(CircleShape).background(color).alpha(alpha))
 }
 
-/** 悬浮玻璃胶囊底栏 */
+/** 通栏纸底栏：细顶线分隔，选中项番茄红 + 短下划线 */
 @Composable
 private fun GlassNavBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    GlassPanel(
+    Column(
         modifier = modifier
-            .padding(horizontal = 48.dp)
-            .fillMaxWidth(),
-        shape = GlassShape.pill,
-        shadowElevation = 16.dp,
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
     ) {
-        Row(Modifier.padding(6.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outline)
+        )
+        Row(Modifier.navigationBarsPadding()) {
             NavItem("搜索", Icons.Default.Search, selected == 0) { onSelect(0) }
             NavItem("下载", Icons.Default.Download, selected == 1) { onSelect(1) }
         }
@@ -242,71 +309,209 @@ private fun RowScope.NavItem(label: String, icon: ImageVector, selected: Boolean
     Column(
         modifier = Modifier
             .weight(1f)
-            .clip(GlassShape.pill)
-            .background(if (selected) tint.copy(alpha = 0.12f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        if (selected) {
+            Box(
+                Modifier
+                    .width(20.dp)
+                    .height(3.dp)
+                    .clip(GlassShape.pill)
+                    .background(g.accentBottom)
+            )
+            Spacer(Modifier.height(4.dp))
+        }
         Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = tint)
     }
 }
 
 /**
- * 引擎启动中/失败时搜索页的占位内容。
- * 启动中显示玻璃卡片加载态；失败显示引擎日志便于排查。
+ * 引擎升级浮层：检查上游新版本 → 下载并替换 → 重启引擎。
+ * 引擎自带的 /api/self_update 在 linker64 启动模式下不可用，升级由 APP 完成（见 EngineUpdater）。
+ * 自绘底部浮层（M3 ModalBottomSheet 与动态内容重排配合有诡异行为，弃用）。
  */
 @Composable
-private fun EngineStartingPane(vm: AppViewModel) {
-    val starting by vm.engineStarting.collectAsState()
-    val log by vm.engineLog.collectAsState()
+private fun EngineUpgradeSheet(vm: AppViewModel, currentVersion: String, onDismiss: () -> Unit) {
+    val state by vm.engineUpdate.collectAsState()
     val g = LocalGlassColors.current
 
-    if (starting) {
-        // 冷启动要复制 9MB 引擎并等它监听端口，约 10-20 秒
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            GlassPanel(shadowElevation = 18.dp) {
+    Box(Modifier.fillMaxSize()) {
+        // 半透明遮罩，点空白处关闭
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+                .clickable(onClick = onDismiss)
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(16.dp),
+        ) {
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                shadowElevation = 24.dp,
+            ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 26.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(22.dp),
                 ) {
-                    CircularProgressIndicator(
-                        color = g.accentBottom,
-                        modifier = Modifier.size(34.dp),
-                        strokeWidth = 3.dp,
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Text(text = "正在启动下载引擎…", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
+                    Text("引擎升级", style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "首次启动需准备引擎文件，约需十几秒\n启动后搜索即可用；下载列表不受影响",
+                        text = "当前版本 v${currentVersion.ifBlank { "?" }}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
                     )
+                    Spacer(Modifier.height(16.dp))
+
+                    val info = state.info
+                    when {
+                        state.checking -> Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = g.accentBottom,
+                            )
+                            Text("正在检查新版本…", style = MaterialTheme.typography.bodyMedium)
+                        }
+
+                        info?.error != null -> Column {
+                            Text(
+                                text = info.error ?: "检查失败",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = g.danger,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            GlassButton(text = "重试", onClick = { vm.checkEngineUpdate() })
+                        }
+
+                        info != null -> {
+                            if (info.hasUpdate) {
+                                Text(
+                                    text = "发现新版本 ${info.latestTag}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "升级会重启下载引擎，已下载的书不受影响",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                Text(
+                                    text = "已是最新版本（v${info.current}）",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                            Spacer(Modifier.height(14.dp))
+
+                            when {
+                                state.downloading -> Column {
+                                    Text(
+                                        text = "下载新引擎… ${state.percent}%",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    LinearProgressIndicator(
+                                        progress = { state.percent / 100f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(GlassShape.pill),
+                                        color = g.accentBottom,
+                                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+                                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                    )
+                                }
+
+                                state.restarting -> Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = g.accentBottom,
+                                    )
+                                    Text("正在替换引擎并重启…", style = MaterialTheme.typography.bodyMedium)
+                                }
+
+                                state.done -> Text(
+                                    text = "✓ 升级完成，引擎已重启",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = g.ok,
+                                )
+
+                                else -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    if (info.hasUpdate) {
+                                        AccentButton(
+                                            text = "下载并升级",
+                                            height = 42.dp,
+                                            onClick = { vm.startEngineUpdate() },
+                                        )
+                                    }
+                                    GlassButton(text = "重新检查", onClick = { vm.checkEngineUpdate() })
+                                }
+                            }
+                        }
+
+                        else -> Column {
+                            Text(
+                                text = "检查上游 GitHub Release 是否有新版本引擎。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            AccentButton(
+                                text = "检查引擎更新",
+                                height = 42.dp,
+                                onClick = { vm.checkEngineUpdate() },
+                            )
+                        }
+                    }
+
+                    state.error?.let {
+                        Spacer(Modifier.height(10.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = g.danger)
+                    }
                 }
             }
         }
-    } else {
-        // 启动失败：显示引擎日志，便于不连电脑也能排查
-        Column(Modifier.fillMaxSize().padding(20.dp)) {
+    }
+}
+
+/** 引擎启动失败时搜索页的日志卡（便于不连电脑排查）。启动中的提示由状态大卡承担。 */
+@Composable
+internal fun EngineFailurePane(vm: AppViewModel) {
+    val log by vm.engineLog.collectAsState()
+    val g = LocalGlassColors.current
+    Column(Modifier.fillMaxSize().padding(vertical = 8.dp)) {
+        Text(
+            text = "引擎启动失败，日志：",
+            style = MaterialTheme.typography.titleSmall,
+            color = g.danger,
+        )
+        Spacer(Modifier.height(10.dp))
+        GlassPanel(modifier = Modifier.weight(1f)) {
             Text(
-                text = "引擎启动失败",
-                style = MaterialTheme.typography.titleMedium,
-                color = g.danger,
+                text = log.ifBlank { "(无日志)" },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(14.dp),
             )
-            Spacer(Modifier.height(10.dp))
-            GlassPanel(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = log.ifBlank { "(无日志)" },
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(14.dp),
-                )
-            }
         }
     }
 }

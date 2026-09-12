@@ -1,16 +1,12 @@
 package com.tomato.shell.ui.theme
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,128 +25,86 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * 毛玻璃设计系统（苹果风）。
+ * 「纸页·书卷」设计系统。
  *
- * 思路：Compose 没有开箱的 backdrop blur，用「极光色斑 + 半透明玻璃面板」来等效——
- * 底层铺几团径向渐变的柔光色块（中心实色向边缘淡出，视觉上就是高斯模糊过的光斑，
- * 且不依赖 RenderEffect，API 26 也能出效果），上层玻璃卡片用半透明渐变填充 +
- * 发丝描边 + 柔影，透出底下的颜色即成「毛玻璃」。
+ * 理念：小说 App 的本质是书——米白纸底 + 墨色文字 + 番茄红点睛，
+ * 白纸卡片 + 细描边分层，无玻璃、无渐变、无彩投影，安静耐看。
+ * 组件名保留 Glass* 前缀（历史沿用），视觉已全部换为纸页语言。
  */
 data class GlassColors(
-    val base: Color,          // 背景底色
-    val blobs: List<Color>,   // 极光色斑颜色
-    val panelTop: Color,      // 玻璃面板渐变顶部
-    val panelBottom: Color,   // 玻璃面板渐变底部
-    val panelBorder: Color,   // 玻璃面板描边
-    val shadow: Color,        // 卡片柔影
-    val accentTop: Color,     // 主按钮渐变（番茄红）
+    val base: Color,          // 页面底色
+    val panelTop: Color,      // 卡片填充（纯白）
+    val accentTop: Color,     // 主色（按钮/选中态）
     val accentBottom: Color,
-    val ok: Color,            // 就绪/成功
-    val warn: Color,          // 进行中
-    val danger: Color,        // 失败
-    val info: Color,          // 信息蓝（本地徽标等）
+    val ok: Color,            // 叶绿：成功/就绪
+    val warn: Color,          // 赭石：进行中
+    val danger: Color,        // 砖红：失败
+    val info: Color,          // 灰蓝：信息徽标
 )
 
 fun lightGlass() = GlassColors(
-    base = Color(0xFFEEF1F7),
-    blobs = listOf(
-        Color(0x73FF5A3C), // 番茄橙
-        Color(0x594DA3FF), // 天蓝
-        Color(0x4C9B6BFF), // 紫罗兰
-        Color(0x4034D1A6), // 薄荷绿
-    ),
-    panelTop = Color(0xB8FFFFFF),
-    panelBottom = Color(0x66FFFFFF),
-    panelBorder = Color(0x99FFFFFF),
-    shadow = Color(0x1A101828),
-    accentTop = Color(0xFFFF7A3D),
-    accentBottom = Color(0xFFFF3B2F),
-    ok = Color(0xFF34C759),
-    warn = Color(0xFFFF9F0A),
-    danger = Color(0xFFE5484D),
-    info = Color(0xFF3D8BFF),
+    base = Color(0xFFF2F3F5),          // 浅灰底
+    panelTop = Color(0xFFFFFFFF),      // 白卡
+    accentTop = Color(0xFFC62828),     // 深番茄红
+    accentBottom = Color(0xFFC62828),
+    ok = Color(0xFF2F6B4F),            // 绿：成功/就绪
+    warn = Color(0xFFB45309),          // 赭石：进行中
+    danger = Color(0xFFB3261E),        // 砖红：失败
+    info = Color(0xFF3D6B8B),          // 灰蓝：信息徽标
 )
 
 fun darkGlass() = GlassColors(
-    base = Color(0xFF07090F),
-    blobs = listOf(
-        Color(0x38FF5A3C),
-        Color(0x402E5BFF),
-        Color(0x337A3CFF),
-        Color(0x2620A88A),
-    ),
-    panelTop = Color(0x17FFFFFF),
-    panelBottom = Color(0x09FFFFFF),
-    panelBorder = Color(0x24FFFFFF),
-    shadow = Color(0x66000000),
-    accentTop = Color(0xFFFF8A55),
-    accentBottom = Color(0xFFFF4D36),
-    ok = Color(0xFF30D158),
-    warn = Color(0xFFFFB340),
-    danger = Color(0xFFFF6361),
-    info = Color(0xFF64B5FF),
+    base = Color(0xFF141619),          // 深灰黑
+    panelTop = Color(0xFF1E2126),      // 深色卡
+    accentTop = Color(0xFFE05545),
+    accentBottom = Color(0xFFE05545),
+    ok = Color(0xFF5B9A78),
+    warn = Color(0xFFD9922B),
+    danger = Color(0xFFE5484D),
+    info = Color(0xFF6FA3C4),
 )
 
 val LocalGlassColors = staticCompositionLocalOf { lightGlass() }
 
 /** 圆角令牌：卡片 / 内嵌块 / 胶囊 */
 object GlassShape {
-    val card = RoundedCornerShape(22.dp)
-    val inner = RoundedCornerShape(14.dp)
+    val card = RoundedCornerShape(14.dp)
+    val inner = RoundedCornerShape(12.dp)
     val pill = RoundedCornerShape(999.dp)
 }
 
-/** 极光背景：底色 + 四团柔光色斑，内容绘制在最上层 */
+/** 页面背景：纯色底 */
 @Composable
 fun AuroraBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val g = LocalGlassColors.current
-    Box(modifier.fillMaxSize().background(g.base)) {
-        Blob(g.blobs[0], 340.dp, Alignment.TopEnd, 70.dp, (-90).dp)
-        Blob(g.blobs[1], 420.dp, Alignment.CenterStart, (-150).dp, (-60).dp)
-        Blob(g.blobs[2], 380.dp, Alignment.BottomEnd, 80.dp, 150.dp)
-        Blob(g.blobs[3], 300.dp, Alignment.BottomStart, (-100).dp, 180.dp)
-        content()
-    }
-}
-
-/** 单团柔光：径向渐变从实色淡出到全透明（等价于被高斯模糊过的色块） */
-@Composable
-private fun BoxScope.Blob(color: Color, size: Dp, align: Alignment, offsetX: Dp, offsetY: Dp) {
-    Box(
-        Modifier
-            .align(align)
-            .offset(x = offsetX, y = offsetY)
-            .size(size)
-            .background(Brush.radialGradient(listOf(color, color.copy(alpha = 0f))))
-    )
+    Box(modifier.fillMaxSize().background(g.base), content = content)
 }
 
 /**
- * 毛玻璃面板：半透明渐变填充 + 发丝描边 + 柔影。
+ * 标准卡片：纯白填充 + 极浅阴影，无描边（Clash Meta 式卡片语言）。
  * 传 onClick 即为可点击卡片（涟漪被 clip 在圆角内）。
  */
 @Composable
 fun GlassPanel(
     modifier: Modifier = Modifier,
     shape: Shape = GlassShape.card,
-    shadowElevation: Dp = 10.dp,
+    shadowElevation: Dp = 2.dp,   // 极浅阴影
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val g = LocalGlassColors.current
     var m = modifier
-        .shadow(shadowElevation, shape, clip = false, ambientColor = g.shadow, spotColor = g.shadow)
+        .shadow(shadowElevation, shape, clip = false)
         .clip(shape)
-        .background(Brush.verticalGradient(listOf(g.panelTop, g.panelBottom)))
-        .border(1.dp, g.panelBorder, shape)
+        .background(g.panelTop)
     if (onClick != null) m = m.clickable(onClick = onClick)
     Box(m, content = content)
 }
 
-/** 番茄渐变主按钮（胶囊形） */
+/** 番茄红实心胶囊主按钮 */
 @Composable
 fun AccentButton(
     text: String,
@@ -180,7 +134,7 @@ fun AccentButton(
     }
 }
 
-/** 玻璃次级按钮（胶囊形，无渐变） */
+/** 灰底胶囊次级按钮（tonal 风格） */
 @Composable
 fun GlassButton(
     text: String,
@@ -188,18 +142,19 @@ fun GlassButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
-    GlassPanel(
-        modifier = modifier,
-        shape = GlassShape.pill,
-        shadowElevation = 0.dp,
-        onClick = if (enabled) onClick else null,
+    Box(
+        modifier = modifier
+            .clip(GlassShape.pill)
+            .alpha(if (enabled) 1f else 0.5f)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = if (enabled) MaterialTheme.colorScheme.onBackground
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onBackground,
         )
     }
 }
@@ -210,7 +165,7 @@ fun PillBadge(text: String, tint: Color) {
     Box(
         Modifier
             .clip(GlassShape.pill)
-            .background(tint.copy(alpha = 0.16f))
+            .background(tint.copy(alpha = 0.14f))
             .padding(horizontal = 9.dp, vertical = 3.dp)
     ) {
         Text(

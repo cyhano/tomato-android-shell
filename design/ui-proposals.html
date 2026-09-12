@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄下载 · UI 设计提案（3 版）</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    background:#E8EAED; color:#1C1B1F; padding:32px 24px 80px;
+  }
+  .page-title { text-align:center; font-size:22px; font-weight:800; margin-bottom:6px; }
+  .page-sub { text-align:center; color:#5F5F5F; font-size:13px; margin-bottom:40px; }
+
+  .proposal { margin-bottom:64px; }
+  .proposal-head { max-width:1240px; margin:0 auto 20px; }
+  .proposal-name { font-size:18px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:99px; background:#1C1B1F; color:#fff; }
+  .badge.red { background:#C62828; }
+  .proposal-desc { color:#5F5F5F; font-size:13px; line-height:1.7; margin-top:8px; }
+  .proposal-desc b { color:#1C1B1F; }
+
+  .row { display:flex; gap:28px; justify-content:center; flex-wrap:wrap; }
+  .phone-wrap { width:340px; }
+  .screen-label { font-size:12px; font-weight:700; color:#5F5F5F; margin:0 0 8px 4px; letter-spacing:.05em; }
+  .phone {
+    width:340px; height:720px; background:var(--bg); border-radius:30px; overflow:hidden;
+    border:1px solid #DADDE1; box-shadow:0 20px 40px -24px rgba(0,0,0,.25);
+    position:relative; display:flex; flex-direction:column; overflow-y:auto;
+  }
+  .phone::-webkit-scrollbar { display:none; }
+
+  /* ── 通用元素 ── */
+  .statusbar { height:26px; display:flex; justify-content:space-between; align-items:center;
+    padding:0 18px; font-size:11px; font-weight:700; color:#1C1B1F; flex:none; }
+  .statusbar .r { display:flex; gap:5px; align-items:center; font-size:10px; }
+  .h1 { font-size:26px; font-weight:900; letter-spacing:.01em; padding:6px 18px 0; }
+  .card { background:#fff; border-radius:14px; box-shadow:0 1px 3px rgba(0,0,0,.07); }
+  .btn-solid { background:var(--acc); color:#fff; border-radius:99px; font-weight:700;
+    display:inline-flex; align-items:center; justify-content:center; }
+  .btn-tonal { background:#E8E9EB; color:#1C1B1F; border-radius:99px; font-weight:600;
+    display:inline-flex; align-items:center; justify-content:center; }
+  .fab { position:absolute; right:16px; bottom:70px; width:54px; height:54px; border-radius:50%;
+    background:var(--acc); color:#fff; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 14px -4px rgba(198,40,40,.55); font-size:22px; }
+  .navbar { flex:none; background:#fff; border-top:1px solid #E7E8EA; display:flex; padding:6px 0 14px; position:sticky; bottom:0; }
+  .nav-item { flex:1; text-align:center; font-size:11px; color:#8A8A8A; }
+  .nav-item .ic { font-size:19px; margin-bottom:2px; }
+  .nav-item.active { color:var(--acc); font-weight:700; }
+  .nav-item.active .uline { display:block; width:20px; height:3px; border-radius:3px; background:var(--acc); margin:3px auto 2px; }
+  .uline { display:none; }
+  .cover { aspect-ratio:3/4; display:flex; align-items:flex-end; padding:8px;
+    color:#fff; font-weight:800; font-size:12px; line-height:1.3; text-shadow:0 1px 3px rgba(0,0,0,.4); }
+  .cov-red { background:linear-gradient(160deg,#E0533F,#B71C1C 70%); }
+  .cov-blue { background:linear-gradient(160deg,#5B7FD4,#1A2E6E 75%); }
+  .cov-gold { background:linear-gradient(160deg,#D9A441,#7A4B12 75%); }
+  .cov-green { background:linear-gradient(160deg,#57A773,#1D4A2E 75%); }
+  .cov-purple { background:linear-gradient(160deg,#9B6BD4,#3D1E6E 75%); }
+  .searchbox { display:flex; align-items:center; gap:9px; background:#fff; border-radius:24px;
+    padding:11px 14px; box-shadow:0 1px 3px rgba(0,0,0,.07); }
+  .searchbox .ph { color:#8A8A8A; font-size:13px; flex:1; }
+  .searchbox .go { width:34px; height:34px; border-radius:50%; background:var(--acc); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:15px; margin:-4px -6px -4px 0; }
+
+  /* ── V1 · CMFA 正统 ── */
+  .v1 { --acc:#C62828; --bg:#F2F3F5; }
+  .v1 .status-card { margin:12px 16px 0; background:var(--acc); border-radius:14px; padding:15px 17px;
+    display:flex; align-items:center; gap:13px; color:#fff; }
+  .v1 .status-card .ring { width:32px; height:32px; border-radius:50%; border:2.5px solid #fff;
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex:none; }
+  .v1 .status-card .t { font-size:16px; font-weight:800; }
+  .v1 .status-card .s { font-size:11.5px; opacity:.78; margin-top:2px; }
+  .v1 .status-card.grey { background:#8E9196; }
+  .v1 .grid { display:grid; grid-template-columns:1fr 1fr; gap:11px; padding:12px 16px 20px; }
+  .v1 .gcard { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); }
+  .v1 .gcard .info { padding:9px 10px 10px; }
+  .v1 .gcard .name { font-size:12.5px; font-weight:700; line-height:1.35; height:34px; }
+  .v1 .gcard .author { font-size:11px; color:#8A8A8A; margin-top:3px; }
+  .v1 .task { margin:0 16px 11px; padding:13px 14px; }
+  .v1 .task .top { display:flex; justify-content:space-between; align-items:flex-start; }
+  .v1 .task .name { font-size:14.5px; font-weight:800; line-height:1.3; }
+  .v1 .task .meta { font-size:11.5px; color:#8A8A8A; margin-top:6px; line-height:1.6; }
+  .v1 .task .bar { height:4px; border-radius:4px; background:#E4E5E7; margin-top:10px; overflow:hidden; }
+  .v1 .task .bar i { display:block; height:100%; background:var(--acc); }
+  .v1 .task .foot { display:flex; justify-content:flex-end; gap:8px; margin-top:11px; }
+  .v1 .task .foot .b { font-size:12px; padding:6px 16px; }
+  .v1 .fab { position:sticky; float:right; margin:-56px 14px 10px; bottom:70px; }
+
+  /* ── V2 · 书城货架 ── */
+  .v2 { --acc:#C62828; --bg:#F2F3F5; }
+  .v2 .shelf { display:flex; gap:11px; overflow-x:auto; padding:10px 16px 4px; }
+  .v2 .shelf::-webkit-scrollbar { display:none; }
+  .v2 .scard { flex:none; width:108px; background:#fff; border-radius:12px; overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.07); position:relative; }
+  .v2 .scard .tag { position:absolute; top:7px; left:7px; font-size:9.5px; font-weight:700;
+    background:rgba(0,0,0,.45); color:#fff; padding:2px 7px; border-radius:99px; backdrop-filter:blur(4px); }
+  .v2 .scard .prog { position:absolute; left:0; right:0; bottom:0; height:3px; background:rgba(255,255,255,.3); }
+  .v2 .scard .prog i { display:block; height:100%; background:var(--acc); }
+  .v2 .scard .name { font-size:11.5px; font-weight:700; padding:7px 9px 2px; line-height:1.35; }
+  .v2 .scard .pct { font-size:10px; color:var(--acc); font-weight:700; padding:0 9px 9px; }
+  .v2 .section-t { font-size:15px; font-weight:900; padding:16px 16px 9px; display:flex; justify-content:space-between; align-items:center; }
+  .v2 .section-t .more { font-size:11.5px; color:#8A8A8A; font-weight:500; }
+  .v2 .grid { display:grid; grid-template-columns:1fr 1fr; gap:11px; padding:0 16px 20px; }
+  .v2 .gcard { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); position:relative; }
+  .v2 .gcard .stat { position:absolute; top:7px; right:7px; font-size:9.5px; font-weight:700;
+    background:rgba(0,0,0,.45); color:#fff; padding:2px 7px; border-radius:99px; }
+  .v2 .gcard .info { padding:9px 10px 10px; }
+  .v2 .gcard .name { font-size:12.5px; font-weight:700; line-height:1.35; height:34px; }
+  .v2 .gcard .meta { font-size:11px; color:#8A8A8A; margin-top:3px; }
+  .v2 .gcard .meta b { color:var(--acc); font-weight:700; }
+  .v2 .task { margin:0 16px 11px; padding:13px 14px; }
+  .v2 .task .cover-s { width:52px; height:70px; border-radius:8px; flex:none; }
+  .v2 .task .row { display:flex; gap:12px; }
+  .v2 .task .name { font-size:14.5px; font-weight:800; line-height:1.3; }
+  .v2 .task .meta { font-size:11.5px; color:#8A8A8A; margin-top:4px; line-height:1.6; }
+  .v2 .task .meta b { color:var(--acc); }
+  .v2 .task .foot { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+  .v2 .task .note { font-size:10.5px; color:#A5A5A5; }
+  .v2 .task .btns { display:flex; gap:8px; }
+  .v2 .task .b { font-size:12px; padding:6px 16px; }
+  .v2 .detail-hero { margin:10px 16px; padding:15px; display:flex; gap:14px; }
+  .v2 .detail-hero .cover-s { width:92px; height:124px; border-radius:10px; flex:none; }
+  .v2 .detail-hero .name { font-size:18px; font-weight:900; line-height:1.3; }
+  .v2 .chip { display:inline-block; font-size:10.5px; font-weight:700; color:#3D6B8B; background:#3D6B8B22;
+    padding:2px 9px; border-radius:99px; margin-top:7px; }
+  .v2 .detail-hero .meta { font-size:11.5px; color:#8A8A8A; margin-top:8px; line-height:1.7; }
+  .v2 .block { margin:0 16px 12px; padding:14px 15px; }
+  .v2 .block .t { font-size:14px; font-weight:800; }
+  .v2 .range { display:flex; gap:9px; margin-top:10px; align-items:center; }
+  .v2 .range .in { flex:1; background:#F2F3F5; border-radius:10px; padding:11px 13px; font-size:12.5px; color:#8A8A8A; }
+  .v2 .range .go { font-size:13px; padding:11px 20px; }
+  .v2 .hint { font-size:11px; color:#A5A5A5; margin-top:8px; }
+
+  /* ── V3 · 轻格 ── */
+  .v3 { --acc:#C62828; --bg:#FAFAFA; }
+  .v3 .statusbar { color:#333; }
+  .v3 .top { padding:8px 18px 12px; display:flex; align-items:center; justify-content:space-between; }
+  .v3 .h1 { padding:0; font-size:27px; }
+  .v3 .pill { font-size:11px; font-weight:700; color:var(--acc); background:#C6282814;
+    border:1px solid #C6282826; padding:5px 12px; border-radius:99px; display:flex; align-items:center; gap:6px; }
+  .v3 .pill i { width:7px; height:7px; border-radius:50%; background:var(--acc); display:inline-block; }
+  .v3 .searchbox { background:#EDEEF0; box-shadow:none; }
+  .v3 .searchbox .go { background:#1C1B1F; }
+  .v3 .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:14px 18px 20px; }
+  .v3 .gcard { border-radius:12px; overflow:hidden; }
+  .v3 .gcard .name { font-size:12.5px; font-weight:700; line-height:1.35; height:34px; }
+  .v3 .gcard .author { font-size:11px; color:#8A8A8A; margin-top:3px; }
+  .v3 .task { background:#fff; border-radius:12px; margin:0 18px 12px; padding:14px 15px; }
+  .v3 .task .name { font-size:14.5px; font-weight:800; }
+  .v3 .task .meta { font-size:11.5px; color:#8A8A8A; margin-top:6px; }
+  .v3 .task .bar { height:3px; background:#ECECEC; border-radius:3px; margin-top:12px; }
+  .v3 .task .bar i { display:block; height:100%; background:var(--acc); }
+  .v3 .task .foot { display:flex; justify-content:flex-end; gap:14px; margin-top:10px; font-size:13px; font-weight:700; }
+  .v3 .task .foot .link { color:var(--acc); }
+  .v3 .task .foot .link.grey { color:#8A8A8A; }
+  .v3 .navbar { background:transparent; border-top:none; }
+</style>
+</head>
+<body>
+
+<div class="page-title">番茄下载 · UI 设计提案</div>
+<div class="page-sub">三版均基于 Clash Meta for Android 的设计语言（浅灰底 / 白卡 / 单一强调色），强调色统一用番茄深红。下面每部手机可横向对比。</div>
+
+<!-- ═══════════ V1 ═══════════ -->
+<div class="proposal v1">
+  <div class="proposal-head">
+    <div class="proposal-name">V1 · CMFA 正统 <span class="badge red">最贴近参考</span></div>
+    <div class="proposal-desc">完全照搬 Clash Meta 的布局节奏：<b>主页状态大卡</b>（运行中=红底白字，点开升级浮层）→ 搜索框 → <b>双列网格</b>书城卡（封面顶图 + 固定两行书名，全卡等高对齐）；下载页白卡 + 4px 细进度条 + 灰底 tonal 按钮 + <b>右下 FAB 检查更新</b>。改动最小，气质最"工具"。</div>
+  </div>
+  <div class="row">
+    <div class="phone-wrap">
+      <div class="screen-label">主页（搜索）</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="h1">番茄下载</div>
+        <div class="status-card">
+          <div class="ring">✓</div>
+          <div><div class="t">引擎就绪</div><div class="s">v2.4.15 · 点按检查引擎升级</div></div>
+        </div>
+        <div style="padding:12px 16px 0;">
+          <div class="searchbox"><span style="color:#8A8A8A">⌕</span><span class="ph">书名 / ID / 番茄链接</span><span class="go">⌕</span></div>
+        </div>
+        <div class="grid">
+          <div class="gcard"><div class="cover cov-red">遮天：九龙拉棺<br>星海寄情</div><div class="info"><div class="name">遮天：九龙拉棺，星海寄情</div><div class="author">广西一大爷</div></div></div>
+          <div class="gcard"><div class="cover cov-blue">遮天：<br>圣体证道</div><div class="info"><div class="name">遮天：圣体证道，开局建立天庭</div><div class="author">阴雨雷鸣</div></div></div>
+          <div class="gcard"><div class="cover cov-gold">遮天记</div><div class="info"><div class="name">遮天记</div><div class="author">归来的落秋</div></div></div>
+          <div class="gcard"><div class="cover cov-green">开局证道成帝</div><div class="info"><div class="name">开局证道成帝，禁区至尊崩溃了</div><div class="author">奕帅的二哈</div></div></div>
+        </div>
+        <div class="navbar">
+          <div class="nav-item active"><div class="ic">⌕</div><span class="uline"></span>搜索</div>
+          <div class="nav-item"><div class="ic">⇩</div><span class="uline"></span>下载</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="screen-label">下载任务</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="h1">下载任务</div>
+        <div style="height:12px"></div>
+        <div class="task">
+          <div class="top"><div class="name">遮天：圣体证道，开局建立天庭</div><span style="font-size:10.5px;color:#3D6B8B;background:#3D6B8B18;padding:2px 8px;border-radius:99px;font-weight:700;white-space:nowrap;">本地已有</span></div>
+          <div class="meta">已下载 378 章 · 2.5 MB</div>
+          <div class="foot"><span class="b btn-tonal">打开</span></div>
+        </div>
+        <div class="task">
+          <div class="top"><div class="name">万界截胡：从蛇人女王妹妹开始</div><span style="font-size:10.5px;color:#3D6B8B;background:#3D6B8B18;padding:2px 8px;border-radius:99px;font-weight:700;white-space:nowrap;">本地已有</span></div>
+          <div class="meta">作者：逆天的笨猪 · 玄幻脑洞<br>已下载 146 章 · 187 KB<br>最新：<b style="color:var(--acc)">第 146 章 大不了以后我挖矿…</b></div>
+          <div class="foot"><span class="b btn-tonal">打开</span></div>
+        </div>
+        <div class="task">
+          <div class="top"><div class="name">斗破苍穹前传之药老传奇</div></div>
+          <div class="meta">下载中 · 36 / 120 章</div>
+          <div class="bar"><i style="width:30%"></i></div>
+          <div class="foot"><span class="b btn-tonal">取消</span></div>
+        </div>
+        <div class="fab">⟳</div>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="screen-label">书籍详情</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="h1">书籍详情</div>
+        <div style="padding:12px 16px 0;">
+          <div class="task" style="margin:0; display:flex; gap:14px;">
+            <div class="cover cov-blue" style="width:92px;height:124px;border-radius:10px;flex:none;padding:0;display:block;"></div>
+            <div style="padding-top:2px;">
+              <div style="font-size:17px;font-weight:900;line-height:1.3;">遮天：圣体证道，开局建立天庭</div>
+              <div class="meta" style="margin-top:6px;">作者：阴雨雷鸣</div>
+              <span style="display:inline-block;font-size:10.5px;font-weight:700;color:#3D6B8B;background:#3D6B8B18;padding:2px 9px;border-radius:99px;margin-top:7px;">玄幻衍生</span>
+              <div class="meta" style="margin-top:6px;">378 章 · 96 万字<br>2111 人在读</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding:6px 16px 0;">
+          <div class="task">
+            <div style="font-size:14px;font-weight:800;">下载范围</div>
+            <div style="display:flex; gap:9px; margin-top:10px; align-items:center;">
+              <div style="flex:1;background:#F2F3F5;border-radius:10px;padding:11px 13px;font-size:12.5px;color:#8A8A8A;">留空=全部；1-100 或 50</div>
+              <span class="b btn-solid" style="font-size:13px;padding:11px 20px;">下载</span>
+            </div>
+            <div style="font-size:11px;color:#A5A5A5;margin-top:8px;">共 378 章。留空则全部下载（已下载的章节自动跳过）</div>
+          </div>
+          <div class="task">
+            <div style="font-size:14px;font-weight:800;">简介</div>
+            <div style="font-size:12px;color:#5F5F5F;line-height:1.7;margin-top:8px;">我有一剑，可开天门。少年叶凡自北斗崛起，圣体证道，镇压禁区……</div>
+          </div>
+        </div>
+        <div class="navbar">
+          <div class="nav-item"><div class="ic">⌕</div><span class="uline"></span>搜索</div>
+          <div class="nav-item active"><div class="ic">⇩</div><span class="uline"></span>下载</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ V2 ═══════════ -->
+<div class="proposal v2">
+  <div class="proposal-head">
+    <div class="proposal-name">V2 · 书城货架 <span class="badge">信息最多</span></div>
+    <div class="proposal-desc">在 V1 基础上往"书城"再走一步：主页顶部加<b>「继续读」横滑架</b>（本地书 + 阅读进度条 + 连载/完结角标），搜索结果卡右上角加<b>状态角标</b>（有更新/已最新），下载页富卡片保留（封面缩略图 + 红色高亮的最新章节）。信息密度最高，最像正式产品。</div>
+  </div>
+  <div class="row">
+    <div class="phone-wrap">
+      <div class="screen-label">主页（搜索）</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="h1">番茄下载</div>
+        <div style="padding:10px 16px 0;">
+          <div class="searchbox"><span style="color:#8A8A8A">⌕</span><span class="ph">书名 / ID / 番茄链接</span><span class="go">⌕</span></div>
+        </div>
+        <div class="section-t">继续读 <span class="more">全部 ›</span></div>
+        <div class="shelf">
+          <div class="scard"><span class="tag">连载中</span><div class="cover cov-blue" style="font-size:11px;">遮天圣体证道</div><div class="prog"><i style="width:22%"></i></div><div class="name">遮天：圣体证道</div><div class="pct">已读 5 / 378 章</div></div>
+          <div class="scard"><span class="tag">完结</span><div class="cover cov-red" style="font-size:11px;">万界截胡</div><div class="prog"><i style="width:100%"></i></div><div class="name">万界截胡</div><div class="pct">已收 146 章</div></div>
+          <div class="scard"><span class="tag">连载中</span><div class="cover cov-purple" style="font-size:11px;">仙界闭关</div><div class="prog"><i style="width:64%"></i></div><div class="name">仙界闭关小能手</div><div class="pct">已收 2116 章</div></div>
+        </div>
+        <div class="section-t">搜索结果 <span class="more">"遮天"</span></div>
+        <div class="grid">
+          <div class="gcard"><span class="stat">有更新 +3</span><div class="cover cov-red">遮天：九龙拉棺</div><div class="info"><div class="name">遮天：九龙拉棺，星海寄情</div><div class="meta">广西一大爷 · <b>有更新</b></div></div></div>
+          <div class="gcard"><span class="stat">连载中</span><div class="cover cov-blue">遮天：圣体证道</div><div class="info"><div class="name">遮天：圣体证道，开局建立天庭</div><div class="meta">阴雨雷鸣 · 378 章</div></div></div>
+          <div class="gcard"><span class="stat">连载中</span><div class="cover cov-gold">遮天记</div><div class="info"><div class="name">遮天记</div><div class="meta">归来的落秋 · 1204 章</div></div></div>
+          <div class="gcard"><span class="stat">完结</span><div class="cover cov-green">开局证道成帝</div><div class="info"><div class="name">开局证道成帝，禁区至尊崩溃了</div><div class="meta">奕帅的二哈 · 86 章</div></div></div>
+        </div>
+        <div class="navbar">
+          <div class="nav-item active"><div class="ic">⌕</div><span class="uline"></span>搜索</div>
+          <div class="nav-item"><div class="ic">⇩</div><span class="uline"></span>下载</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="screen-label">下载任务</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="h1">下载任务</div>
+        <div style="height:12px"></div>
+        <div class="task">
+          <div class="row">
+            <div class="cover-s cover cov-blue"></div>
+            <div style="flex:1;">
+              <div class="name">遮天：圣体证道，开局建立天庭</div>
+              <div class="meta">阴雨雷鸣 · 玄幻衍生</div>
+              <div class="meta">已下载 <b>378</b> 章 · 2.5 MB<br>最新：第 378 章 大结局</div>
+            </div>
+          </div>
+          <div class="foot"><span class="note">App 重启后仍可打开</span><span class="btns"><span class="b btn-solid">打开</span></span></div>
+        </div>
+        <div class="task">
+          <div class="row">
+            <div class="cover-s cover cov-red"></div>
+            <div style="flex:1;">
+              <div class="name">万界截胡：从蛇人女王妹妹开始</div>
+              <div class="meta">逆天的笨猪 · 玄幻脑洞</div>
+              <div class="meta">已下载 146 章 · 187 KB<br>最新：第 146 章 大不了以后我挖矿…</div>
+            </div>
+          </div>
+          <div class="foot"><span class="note">App 重启后仍可打开</span><span class="btns"><span class="b btn-solid">打开</span></span></div>
+        </div>
+        <div class="task">
+          <div class="row">
+            <div class="cover-s cover cov-gold"></div>
+            <div style="flex:1;">
+              <div class="name">斗破苍穹前传之药老传奇</div>
+              <div class="meta">天蚕土豆 · 奇幻玄幻</div>
+              <div class="meta">下载中 · <b>36 / 120</b> 章</div>
+            </div>
+          </div>
+          <div class="foot"><span class="note">预计还需 4 分钟</span><span class="btns"><span class="b btn-tonal">取消</span></span></div>
+        </div>
+        <div class="fab">⟳</div>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="screen-label">书籍详情</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="h1">书籍详情</div>
+        <div class="detail-hero">
+          <div class="cover-s cover cov-blue"></div>
+          <div>
+            <div class="name">遮天：圣体证道，开局建立天庭</div>
+            <div style="font-size:12px;color:#5F5F5F;margin-top:5px;">作者：阴雨雷鸣</div>
+            <span class="chip">玄幻衍生</span>
+            <div class="meta">378 章 · 96 万字 · 2111 人在读</div>
+          </div>
+        </div>
+        <div class="block">
+          <div class="t">下载范围</div>
+          <div class="range">
+            <div class="in">留空=全部；1-100 或 50</div>
+            <span class="go btn-solid">下载</span>
+          </div>
+          <div class="hint">共 378 章。已下载过的章节自动跳过，不会重复下载</div>
+        </div>
+        <div class="block">
+          <div class="t">简介</div>
+          <div style="font-size:12px;color:#5F5F5F;line-height:1.7;margin-top:8px;">我有一剑，可开天门。少年叶凡自北斗崛起，圣体证道，一路镇压禁区至尊，重铸天庭荣光……</div>
+        </div>
+        <div class="navbar">
+          <div class="nav-item"><div class="ic">⌕</div><span class="uline"></span>搜索</div>
+          <div class="nav-item active"><div class="ic">⇩</div><span class="uline"></span>下载</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ V3 ═══════════ -->
+<div class="proposal v3">
+  <div class="proposal-head">
+    <div class="proposal-name">V3 · 轻格 <span class="badge">最轻最静</span></div>
+    <div class="proposal-desc">去掉状态大卡的"块"，改回<b>顶部小状态胶囊</b>（红点+文字，点开升级）；去掉 FAB 和卡片阴影——近黑方搜索钮、无底色文字链接（更新 / 打开 / 取消都是纯文字操作），列表靠留白分隔。最安静克制，内容永远是主角。</div>
+  </div>
+  <div class="row">
+    <div class="phone-wrap">
+      <div class="screen-label">主页（搜索）</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="top">
+          <div class="h1">番茄下载</div>
+          <div class="pill"><i></i>引擎就绪 · v2.4.15</div>
+        </div>
+        <div style="padding:0 18px;">
+          <div class="searchbox"><span style="color:#8A8A8A">⌕</span><span class="ph">书名 / ID / 番茄链接</span><span class="go">⌕</span></div>
+        </div>
+        <div class="grid">
+          <div class="gcard"><div class="cover cov-red" style="border-radius:12px;">遮天：九龙拉棺</div><div class="name" style="margin-top:8px;">遮天：九龙拉棺，星海寄情</div><div class="author">广西一大爷</div></div>
+          <div class="gcard"><div class="cover cov-blue" style="border-radius:12px;">遮天：圣体证道</div><div class="name" style="margin-top:8px;">遮天：圣体证道，开局建立天庭</div><div class="author">阴雨雷鸣</div></div>
+          <div class="gcard"><div class="cover cov-gold" style="border-radius:12px;">遮天记</div><div class="name" style="margin-top:8px;">遮天记</div><div class="author">归来的落秋</div></div>
+          <div class="gcard"><div class="cover cov-green" style="border-radius:12px;">开局证道成帝</div><div class="name" style="margin-top:8px;">开局证道成帝，禁区至尊崩溃了</div><div class="author">奕帅的二哈</div></div>
+        </div>
+        <div class="navbar">
+          <div class="nav-item active"><div class="ic">⌕</div>搜索</div>
+          <div class="nav-item"><div class="ic">⇩</div>下载</div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="screen-label">下载任务</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="top"><div class="h1">下载任务</div></div>
+        <div style="height:6px"></div>
+        <div class="task">
+          <div class="name">遮天：圣体证道，开局建立天庭</div>
+          <div class="meta">已下载 378 章 · 2.5 MB · 更新于 02:00</div>
+          <div class="bar"><i style="width:100%"></i></div>
+          <div class="foot"><span class="link">打开</span></div>
+        </div>
+        <div class="task">
+          <div class="name">万界截胡：从蛇人女王妹妹开始</div>
+          <div class="meta">逆天的笨猪 · 已下载 146 章 · 187 KB</div>
+          <div class="bar"><i style="width:100%"></i></div>
+          <div class="foot"><span class="link">更新</span><span class="link grey">打开</span></div>
+        </div>
+        <div class="task">
+          <div class="name">斗破苍穹前传之药老传奇</div>
+          <div class="meta">下载中 · 36 / 120 章</div>
+          <div class="bar"><i style="width:30%"></i></div>
+          <div class="foot"><span class="link grey">取消</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="phone-wrap">
+      <div class="screen-label">书籍详情</div>
+      <div class="phone">
+        <div class="statusbar"><span>01:59</span><span class="r">4G ▾ 📶</span></div>
+        <div class="top"><div class="h1">书籍详情</div></div>
+        <div style="padding:4px 18px 0; display:flex; gap:14px;">
+          <div class="cover cov-blue" style="width:92px;height:124px;border-radius:12px;flex:none;padding:0;display:block;"></div>
+          <div style="padding-top:2px;">
+            <div style="font-size:17px;font-weight:900;line-height:1.3;">遮天：圣体证道，开局建立天庭</div>
+            <div style="font-size:12px;color:#5F5F5F;margin-top:5px;">作者：阴雨雷鸣</div>
+            <div style="font-size:11.5px;color:#8A8A8A;margin-top:7px;">玄幻衍生 · 378 章<br>96 万字 · 2111 人在读</div>
+          </div>
+        </div>
+        <div style="padding:20px 18px 0;">
+          <div style="font-size:14px;font-weight:800;">下载范围</div>
+          <div style="display:flex; gap:9px; margin-top:10px; align-items:center;">
+            <div style="flex:1;background:#EDEEF0;border-radius:10px;padding:11px 13px;font-size:12.5px;color:#8A8A8A;">留空=全部；1-100 或 50</div>
+            <span class="b btn-solid" style="font-size:13px;padding:11px 20px;">下载</span>
+          </div>
+          <div style="font-size:11px;color:#A5A5A5;margin-top:8px;">共 378 章。已下载的章节自动跳过，不会重复下载</div>
+        </div>
+        <div style="padding:20px 18px 0;">
+          <div style="font-size:14px;font-weight:800;">简介</div>
+          <div style="font-size:12px;color:#5F5F5F;line-height:1.7;margin-top:8px;">我有一剑，可开天门。少年叶凡自北斗崛起，圣体证道，一路镇压禁区至尊，重铸天庭荣光……</div>
+        </div>
+        <div class="navbar">
+          <div class="nav-item active"><div class="ic">⌕</div>搜索</div>
+          <div class="nav-item"><div class="ic">⇩</div>下载</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

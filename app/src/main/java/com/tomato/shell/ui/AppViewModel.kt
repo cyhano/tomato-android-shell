@@ -3,12 +3,15 @@ package com.tomato.shell.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.tomato.shell.data.BookRefParser
 import com.tomato.shell.data.BookDetail
+import com.tomato.shell.data.EngineUpdateInfo
 import com.tomato.shell.data.Job
 import com.tomato.shell.data.JobProgress
 import com.tomato.shell.data.SearchItem
 import com.tomato.shell.data.TomatoApi
 import com.tomato.shell.engine.EngineManager
+import com.tomato.shell.engine.EngineUpdater
 import com.tomato.shell.ui.screens.ChapterRangeParser
 import com.tomato.shell.ui.screens.ChapterRangeParser.Result as RangeResult
 import kotlinx.coroutines.Job as CoroutineJob
@@ -39,6 +42,84 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // 引擎启动失败原因 / 日志（调试用，显示在界面上）
     private val _engineLog = MutableStateFlow("")
     val engineLog: StateFlow<String> = _engineLog.asStateFlow()
+
+    // ---- 引擎自升级 ----
+
+    /** 引擎升级弹层的完整状态 */
+    data class EngineUpdateUiState(
+        val checking: Boolean = false,
+        val info: EngineUpdateInfo? = null,   // 检查结果（null = 还没检查过）
+        val downloading: Boolean = false,
+        val percent: Int = 0,                 // 下载进度 0-100
+        val restarting: Boolean = false,      // 停引擎/替换/重启阶段
+        val done: Boolean = false,
+        val error: String? = null,
+    )
+
+    private val _engineUpdate = MutableStateFlow(EngineUpdateUiState())
+    val engineUpdate: StateFlow<EngineUpdateUiState> = _engineUpdate.asStateFlow()
+
+    /** 检查上游引擎新版本（GitHub Release） */
+    fun checkEngineUpdate() {
+        if (_engineUpdate.value.checking || _engineUpdate.value.downloading) return
+        viewModelScope.launch {
+            _engineUpdate.value = EngineUpdateUiState(checking = true)
+            val current = _engineVersion.value.ifBlank { EngineManager.BUILTIN_ENGINE_VERSION }
+            val info = withContext(Dispatchers.IO) { EngineUpdater.checkLatest(current) }
+            _engineUpdate.value = EngineUpdateUiState(info = info)
+        }
+    }
+
+    /**
+     * 执行引擎升级：下载新二进制 → 停引擎 → 替换 → 重启。
+     * 注意引擎自带的 /api/self_update 在 linker64 启动模式下不可用（见 EngineUpdater 注释）。
+     */
+    fun startEngineUpdate() {
+        val state = _engineUpdate.value
+        val url = state.info?.downloadUrl ?: return
+        val tag = state.info.latestTag ?: return
+        if (state.downloading || state.restarting) return
+        viewModelScope.launch {
+            _engineUpdate.value = state.copy(downloading = true, percent = 0, error = null)
+            val app = getApplication<Application>()
+            val tmp = File(app.filesDir, "tomato_engine.new")
+            try {
+                val ok = withContext(Dispatchers.IO) {
+                    EngineUpdater.download(url, tmp) { p ->
+                        _engineUpdate.value = _engineUpdate.value.copy(percent = p)
+                    }
+                }
+                if (!ok) throw java.io.IOException("下载失败，请确认能访问 GitHub 后重试")
+
+                _engineUpdate.value = _engineUpdate.value.copy(downloading = false, restarting = true)
+                withContext(Dispatchers.IO) {
+                    EngineManager.stop()
+                    EngineManager.killEngineProcesses(app)
+                    if (!EngineManager.installEngine(app, tmp, tag)) {
+                        throw java.io.IOException("替换引擎文件失败")
+                    }
+                    // 重启引擎（prepareEngine 会看到 self 标记，保留新版本）
+                    EngineManager.start(app)
+                }
+                _engineVersion.value =
+                    withContext(Dispatchers.IO) { api.status()?.version } ?: tag.removePrefix("v")
+                _engineReady.value = EngineManager.isRunning
+                _engineUpdate.value = EngineUpdateUiState(done = true)
+            } catch (e: Exception) {
+                _engineUpdate.value = _engineUpdate.value.copy(
+                    downloading = false,
+                    restarting = false,
+                    error = e.message ?: "升级失败",
+                )
+            }
+        }
+    }
+
+    fun resetEngineUpdatePanel() {
+        if (!_engineUpdate.value.downloading && !_engineUpdate.value.restarting) {
+            _engineUpdate.value = EngineUpdateUiState()
+        }
+    }
 
     // ---- 搜索状态 ----
     private val _searchQuery = MutableStateFlow("")
@@ -116,7 +197,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _searchQuery.value = q
     }
 
-    /** 执行搜索 */
+    /**
+     * 执行搜索。
+     * 输入是链接 / 纯数字 ID 时直接进详情页（与 TUI 的"书名/ID/链接"行为一致），
+     * 否则作为关键词调引擎搜索。
+     */
     fun search() {
         val q = _searchQuery.value.trim()
         if (q.isEmpty()) return
@@ -124,12 +209,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _searching.value = true
             _searchError.value = null
             try {
-                _searchResults.value = api.search(q)
+                // 短链才会发网络请求，普通关键词零开销
+                val bookId = withContext(Dispatchers.IO) { BookRefParser.resolve(q) }
+                if (bookId != null) {
+                    _searching.value = false
+                    openDetail(bookId)
+                } else {
+                    _searchResults.value = api.search(q)
+                }
             } catch (e: Exception) {
                 _searchError.value = e.message ?: "搜索失败"
                 _searchResults.value = emptyList()
             } finally {
                 _searching.value = false
+            }
+        }
+    }
+
+    /** 处理外部分享/粘贴进来的文本（分享目标入口）：能解析出书就直接进详情页 */
+    fun onExternalText(text: String) {
+        if (text.isBlank()) return
+        viewModelScope.launch {
+            val bookId = withContext(Dispatchers.IO) { BookRefParser.resolve(text) }
+            if (bookId != null) {
+                openDetail(bookId)
+            } else {
+                // 解析不出就填进搜索框，让用户自己按搜索
+                _searchQuery.value = text.trim().take(120)
             }
         }
     }
@@ -330,15 +436,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val updated = mutableListOf<String>()
                 var checked = 0
+                val remoteMap = mutableMapOf<String, Long>()
                 for (b in books) {
                     val detail = withContext(Dispatchers.IO) { api.preview(b.bookId!!) }
                     val remote = detail?.chapterCount ?: continue
                     val owned = b.localChapters ?: 0
                     checked++
+                    // 记录远端最新章节数，卡片上的「更新」按钮据此显示
+                    remoteMap[b.bookId!!] = remote
                     if (remote > owned) {
                         updated += "${b.title ?: b.bookId}（+${remote - owned}章）"
                     }
                 }
+                _remoteChapters.value = remoteMap
                 _updateResult.value = when {
                     checked == 0 -> "检查失败，请确认网络后重试"
                     updated.isEmpty() -> "已检查 $checked 本，都是最新的"
@@ -348,6 +458,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _updateResult.value = "检查失败: ${e.message}"
             } finally {
                 _updateScanning.value = false
+            }
+        }
+    }
+
+    /** 检查更新后记录的远端最新章节数（bookId -> chapter_count），卡片据此显示「更新」按钮 */
+    private val _remoteChapters = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val remoteChapters: StateFlow<Map<String, Long>> = _remoteChapters.asStateFlow()
+
+    /**
+     * 对一本已有本地文件的书发起「更新」（增量续传）。
+     *
+     * 引擎创建任务固定用 Resume 模式（downloader.rs）：
+     * 任务启动时 load_existing_status 恢复已下载记录，pending_resume 只下载
+     * status.json 里没有的章节，完成后按全部已下载章节重新打包 EPUB（自动合并）。
+     * 所以这里**不带范围**直接重建任务即可——既追新章节，也顺带补上当初范围下载缺的部分。
+     */
+    fun updateBook(job: Job) {
+        val bookId = job.bookId ?: return
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { api.createJob(bookId) }
+                // 立即刷新：引擎任务（Resume）会顶掉同名的本地条目，显示下载进度
+                _jobs.value = mergeJobs(api.jobs())
+            } catch (e: Exception) {
+                _updateResult.value = "发起更新失败: ${e.message}"
             }
         }
     }
@@ -397,6 +532,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 readCountText = meta?.readCountText,
                 tags = meta?.tags,
                 localChapters = meta?.localChapters,
+                chapterCount = meta?.chapterCount,
                 lastChapterTitle = meta?.lastChapterTitle,
                 coverPath = meta?.coverPath,
                 progress = JobProgress(savePhase = "本地文件"),
@@ -415,6 +551,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val wordCount: Long?,
         val readCountText: String?,
         val tags: String?,
+        val chapterCount: Long?,
         val localChapters: Long?,
         val lastChapterTitle: String?,
         val coverPath: String?,
@@ -486,6 +623,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     ?.groupValues?.get(1),
                 tags = Regex("\"tags\"\\s*:\\s*\\[([^\\]]*)\\]").find(head)
                     ?.groupValues?.get(1)?.replace("\"", "")?.replace(",", " · "),
+                chapterCount = Regex("\"chapter_count\"\\s*:\\s*(\\d+)").find(head)
+                    ?.groupValues?.get(1)?.toLongOrNull(),
                 localChapters = chapters.takeIf { it > 0 },
                 lastChapterTitle = lastTitle,
                 coverPath = cover?.absolutePath,
@@ -505,13 +644,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         null
     }
 
-    /** 合并引擎任务与本地书籍：引擎任务在前，本地书按标题去重后补在后面 */
+    /** 合并引擎任务与本地书籍。 */
     private fun mergeJobs(engineJobs: List<Job>): List<Job> {
         val local = scanLocalBooks()
         if (local.isEmpty()) return engineJobs
-        val engineTitles = engineJobs.mapNotNull { it.title }.toSet()
-        val extra = local.filter { it.title !in engineTitles }
-        return engineJobs + extra
+        val localByTitle = local.associateBy { it.title }
+        // 引擎已完成且本地已有同名 EPUB 的任务 → 丢弃引擎条目，
+        // 显示本地富卡片（含封面/章节数/「更新」按钮，可直接打开）
+        val kept = engineJobs.filter { it.state != "done" || localByTitle[it.title] == null }
+        val keptTitles = kept.mapNotNull { it.title }.toSet()
+        val extra = local.filter { it.title !in keptTitles }
+        return kept + extra
     }
 
     /** 开始轮询任务列表（合并本地已下载书籍，App 重启后列表不会空） */

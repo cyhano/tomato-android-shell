@@ -14,37 +14,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFFFF4B26),          // 番茄橙红
+    primary = Color(0xFFC62828),          // 深番茄红（Clash Meta 式强调色）
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFDCD2),
+    primaryContainer = Color(0xFFF5DBD8),
     onPrimaryContainer = Color(0xFF5C1A0A),
-    secondary = Color(0xFF3D8BFF),
+    secondary = Color(0xFF2F6B4F),        // 绿（成功类）
     onSecondary = Color.White,
-    background = Color(0xFFEEF1F7),
-    onBackground = Color(0xFF171A21),
+    background = Color(0xFFF2F3F5),       // 浅灰底
+    onBackground = Color(0xFF1C1B1F),     // 近黑
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF171A21),
-    surfaceVariant = Color(0xFFE2E6EF),
-    onSurfaceVariant = Color(0xFF5C6575),
-    error = Color(0xFFE5484D),
-    outline = Color(0xFFC6CCD8),
+    onSurface = Color(0xFF1A1714),
+    surfaceVariant = Color(0xFFE8E9EB),
+    onSurfaceVariant = Color(0xFF5F5F5F), // 次级灰
+    error = Color(0xFFB3261E),
+    outline = Color(0xFFE3E4E6),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFFF6B45),
+    primary = Color(0xFFE05545),
     onPrimary = Color(0xFF200A04),
     primaryContainer = Color(0xFF5C2413),
     onPrimaryContainer = Color(0xFFFFD9CD),
-    secondary = Color(0xFF64B5FF),
-    onSecondary = Color(0xFF00223F),
-    background = Color(0xFF07090F),
-    onBackground = Color(0xFFF1F3F8),
-    surface = Color(0xFF11151D),
-    onSurface = Color(0xFFF1F3F8),
-    surfaceVariant = Color(0xFF1A202B),
-    onSurfaceVariant = Color(0xFF98A2B3),
-    error = Color(0xFFFF6361),
-    outline = Color(0xFF39414F),
+    secondary = Color(0xFF5B9A78),
+    onSecondary = Color(0xFF00220F),
+    background = Color(0xFF141619),       // 深灰黑
+    onBackground = Color(0xFFECEDEF),
+    surface = Color(0xFF1E2126),
+    onSurface = Color(0xFFECEDEF),
+    surfaceVariant = Color(0xFF262A30),
+    onSurfaceVariant = Color(0xFF9AA0A8),
+    error = Color(0xFFE5484D),
+    outline = Color(0xFF2E3238),
 )
 
 /** 苹果风字阶：系统无衬线字体 + 明确的重量层级（标题加粗、正文常规、标签中黑） */

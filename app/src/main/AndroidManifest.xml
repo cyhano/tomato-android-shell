@@ -24,6 +24,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 分享目标：其它 App（微信等）分享番茄链接/文案进来直接解析 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- 用于把下载好的 EPUB 以 content:// 交给其它阅读 App 打开 -->

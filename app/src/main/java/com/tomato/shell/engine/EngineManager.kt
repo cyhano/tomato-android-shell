@@ -35,6 +35,13 @@ object EngineManager {
     // 复制到 filesDir 后的文件名
     private const val BIN_NAME = "tomato_engine"
 
+    // 版本标记文件：记录 filesDir 里引擎的来源与版本
+    // （"builtin:<ver>" = APK assets 内置；"self:<ver>" = 引擎自升级安装）
+    private const val MARKER_NAME = "tomato_engine.version"
+
+    /** APK 内置的引擎版本（升级 assets 时同步修改） */
+    const val BUILTIN_ENGINE_VERSION = "2.4.15"
+
     // 引擎默认监听端口（与官方一致）
     const val PORT = 18423
 
@@ -116,22 +123,33 @@ object EngineManager {
     }
 
     /**
-     * 确保引擎二进制在 filesDir 就绪：
-     * 从 assets 复制（带大小校验，避免每次启动都拷 9MB），并设置可执行权限。
+     * 确保引擎二进制在 filesDir 就绪，并设置可执行权限。
+     *
+     * 复制策略（支持引擎自升级后不被 assets 覆盖回旧版）：
+     * - filesDir 里没有引擎 → 从 assets 复制
+     * - filesDir 是「自升级」版本且版本号 >= 内置版本 → 保留用户升级的新引擎
+     * - 其它情况（无标记 / 内置版本 / assets 更新）→ 用 assets 覆盖并重写标记
      */
     private fun prepareEngine(context: Context): String? {
         val dest = File(context.filesDir, BIN_NAME)
+        val marker = File(context.filesDir, MARKER_NAME)
         return try {
-            // 用 assets 里的文件大小做简单校验，一致就跳过复制
             val assetSize = context.assets.openFd(ASSET_NAME).use { it.length }
-            if (!dest.exists() || dest.length() != assetSize) {
+            val installed = if (marker.exists()) marker.readText().trim() else null
+            val selfVersion = installed?.takeIf { it.startsWith("self:") }?.substringAfter(':')
+            // 自升级版本且不低于 APK 内置版本 → 保留
+            val keepSelf = selfVersion != null &&
+                compareVersions(selfVersion, BUILTIN_ENGINE_VERSION) >= 0
+            val needCopy = !keepSelf &&
+                (!dest.exists() || dest.length() != assetSize || installed == null)
+            if (needCopy) {
                 Log.i(TAG, "从 assets 复制引擎到 filesDir（$assetSize 字节）")
                 context.assets.open(ASSET_NAME).use { input ->
                     dest.outputStream().use { output -> input.copyTo(output) }
                 }
-                dest.setExecutable(true, false)
+                marker.writeText("builtin:$BUILTIN_ENGINE_VERSION")
             } else {
-                Log.i(TAG, "filesDir 已有引擎，跳过复制")
+                Log.i(TAG, "filesDir 已有引擎（${installed ?: "未知版本"}），跳过复制")
             }
             if (!dest.exists()) {
                 Log.e(TAG, "复制后文件仍不存在: ${dest.absolutePath}")
@@ -143,6 +161,59 @@ object EngineManager {
             Log.e(TAG, "准备引擎失败: ${e.message}")
             null
         }
+    }
+
+    /**
+     * 安装下载好的新引擎二进制（自升级用）。调用前必须先停掉引擎进程。
+     * 写入 "self:<版本>" 标记，让后续启动保留这个版本。
+     */
+    fun installEngine(context: Context, newBin: File, versionTag: String): Boolean = try {
+        val dest = File(context.filesDir, BIN_NAME)
+        if (dest.exists()) dest.delete()
+        if (!newBin.renameTo(dest)) {
+            // 跨分区 rename 失败时退化为复制
+            newBin.inputStream().use { input -> dest.outputStream().use { input.copyTo(it) } }
+            newBin.delete()
+        }
+        dest.setExecutable(true, false)
+        File(context.filesDir, MARKER_NAME).writeText("self:${versionTag.removePrefix("v")}")
+        Log.i(TAG, "已安装新引擎 ${dest.absolutePath}（$versionTag）")
+        true
+    } catch (e: Exception) {
+        Log.e(TAG, "安装新引擎失败: ${e.message}")
+        false
+    }
+
+    /** 杀掉残留的引擎进程（App 重启后 EngineManager 已不持有进程句柄时用） */
+    fun killEngineProcesses(context: Context): Int {
+        val marker = context.filesDir.absolutePath
+        var killed = 0
+        File("/proc").listFiles { f -> f.isDirectory && f.name.all { it.isDigit() } }?.forEach { d ->
+            try {
+                val cmd = File(d, "cmdline").readText().replace('\u0000', ' ')
+                if (cmd.contains("tomato_engine") && cmd.contains(marker)) {
+                    android.os.Process.killProcess(d.name.toInt())
+                    killed++
+                    Log.i(TAG, "已杀掉残留引擎进程 pid=${d.name}")
+                }
+            } catch (_: Exception) {
+                // 进程可能已退出，忽略
+            }
+        }
+        return killed
+    }
+
+    /** 版本号比较（"v2.4.15" / "2.4.15" 皆可），a>b 返回 1，相等 0，a<b 返回 -1 */
+    fun compareVersions(a: String, b: String): Int {
+        fun parts(s: String) = s.trim().removePrefix("v").split('.').map { it.toIntOrNull() ?: 0 }
+        val pa = parts(a)
+        val pb = parts(b)
+        for (i in 0 until maxOf(pa.size, pb.size)) {
+            val x = pa.getOrElse(i) { 0 }
+            val y = pb.getOrElse(i) { 0 }
+            if (x != y) return x.compareTo(y)
+        }
+        return 0
     }
 
     /** 轮询引擎端口（TCP 连接探测）直到可用，超时返回 false */

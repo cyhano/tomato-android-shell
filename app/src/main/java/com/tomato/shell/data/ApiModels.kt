@@ -70,6 +70,15 @@ data class BookDetail(
     val tags: List<String> = emptyList(),
 )
 
+/** 引擎上游版本检查结果（来自 GitHub Release，APP 自研升级用） */
+data class EngineUpdateInfo(
+    val current: String = "",
+    val latestTag: String? = null,
+    val hasUpdate: Boolean = false,
+    val downloadUrl: String? = null,
+    val error: String? = null,
+)
+
 /** 下载任务 */
 @Serializable
 data class Job(
@@ -97,6 +106,8 @@ data class Job(
     @SerialName("read_count_text") val readCountText: String? = null,
     val tags: String? = null,
     @SerialName("local_chapters") val localChapters: Long? = null,
+    /** 下载时的总章节数（status.json 头部 chapter_count），检查更新时与远端对比用 */
+    @SerialName("chapter_count") val chapterCount: Long? = null,
     @SerialName("last_chapter_title") val lastChapterTitle: String? = null,
     @SerialName("cover_path") val coverPath: String? = null,
 )
