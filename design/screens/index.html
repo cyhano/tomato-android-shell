@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄下载 · 各界面截图（V1.0.1 书城货架 UI）</title>
+<style>
+  body { margin:0; padding:28px 16px 64px; background:#E8EAED; font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif; }
+  h1 { text-align:center; font-size:20px; font-weight:800; margin-bottom:4px; }
+  .sub { text-align:center; color:#5F5F5F; font-size:13px; margin-bottom:32px; }
+  .item { max-width:420px; margin:0 auto 36px; }
+  .item .t { font-size:14px; font-weight:800; margin:0 0 8px 4px; }
+  .item .d { font-size:12px; color:#5F5F5F; margin:-4px 0 8px 4px; line-height:1.6; }
+  .item img { width:100%; border-radius:22px; border:1px solid #DADDE1; box-shadow:0 16px 32px -20px rgba(0,0,0,.3); display:block; }
+</style>
+</head>
+<body>
+<h1>番茄下载 · 各界面截图</h1>
+<div class="sub">V1.0.1 书城货架 UI · Clash Meta 式工具风（浅灰底 / 白卡 / 深番茄红）</div>
+
+<div class="item"><div class="t">① 主页（搜索）</div>
+<div class="d">超大标题 + 白卡搜索框 + 番茄红圆形搜索按钮；支持书名 / ID / 番茄链接直达详情页。</div>
+<img src="1-home.png"></div>
+
+<div class="item"><div class="t">② 搜索无结果</div>
+<div class="d">上游搜索接口偶发限流返回空（重试即恢复），空态文案处理。</div>
+<img src="6-search-results.png"></div>
+
+<div class="item"><div class="t">③ 下载任务</div>
+<div class="d">白卡列表：封面缩略图 + 已下载章节数（红色高亮）+ 最新章节 + 简介；右下角 FAB = 检查更新；有更新的书出现「更新」按钮（tonal 灰），与实心红「打开」形成层级。</div>
+<img src="2-download.png"></div>
+
+<div class="item"><div class="t">④ 书籍详情（从「更新」进入）</div>
+<div class="d">信息卡 / 下载范围卡 / 简介卡三段式；红色提示「本书已下载 146 章，下载时自动跳过已有章节」——用户可自选范围，留空则续传全部缺失章节。</div>
+<img src="3-detail.png"></div>
+
+<div class="item"><div class="t">⑤ 设置</div>
+<div class="d">引擎状态大卡（就绪=深番茄红 / 启动中=灰底转圈 / 失败=灰底叉圆）+ 引擎信息（App 版本 / 引擎版本 / 地址）。</div>
+<img src="4-settings.png"></div>
+
+<div class="item"><div class="t">⑥ 引擎升级浮层</div>
+<div class="d">点设置页状态卡打开：查 GitHub Release → 下载（带进度条）→ 自动替换二进制并重启引擎。</div>
+<img src="5-upgrade-sheet.png"></div>
+</body>
+</html>

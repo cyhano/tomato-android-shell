@@ -14,9 +14,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFFC62828),          // 深番茄红（Clash Meta 式强调色）
+    primary = Color(0xFF4D9DF8),          // 浅蓝（Clash Meta 式强调色）
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFF5DBD8),
+    primaryContainer = Color(0xFFD9E9FD),
     onPrimaryContainer = Color(0xFF5C1A0A),
     secondary = Color(0xFF2F6B4F),        // 绿（成功类）
     onSecondary = Color.White,
@@ -31,9 +31,9 @@ private val LightColors = lightColorScheme(
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFE05545),
+    primary = Color(0xFF7AB8FF),
     onPrimary = Color(0xFF200A04),
-    primaryContainer = Color(0xFF5C2413),
+    primaryContainer = Color(0xFF1F3A5C),
     onPrimaryContainer = Color(0xFFFFD9CD),
     secondary = Color(0xFF5B9A78),
     onSecondary = Color(0xFF00220F),

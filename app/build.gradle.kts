@@ -13,8 +13,8 @@ android {
         applicationId = "com.tomato.shell"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
     }
 
     // 固定签名（keystore/tomato.keystore），保证每次打包签名一致，可覆盖安装

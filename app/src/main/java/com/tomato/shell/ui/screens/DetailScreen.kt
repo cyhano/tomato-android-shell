@@ -63,6 +63,7 @@ fun DetailScreen(
     onDownload: () -> Unit,
     downloading: Boolean,
     error: String?,
+    owned: Long? = null,
     onBack: () -> Unit,
 ) {
     val scroll = rememberScrollState()
@@ -79,27 +80,28 @@ fun DetailScreen(
             .navigationBarsPadding()
             .padding(horizontal = 20.dp)
     ) {
-        Spacer(Modifier.height(4.dp))
-        // 返回
+        // 标题行（统一样式），整行可点返回
         Row(
             modifier = Modifier
-                .clip(GlassShape.pill)
+                .fillMaxWidth()
                 .clickable(onClick = onBack)
-                .padding(vertical = 4.dp),
+                .padding(top = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "‹",
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
                 color = g.accentBottom,
             )
             Text(
-                text = "返回搜索",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = g.accentBottom,
+                text = "书籍详情",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 10.dp),
             )
         }
+
 
         if (loading) {
             Box(
@@ -234,15 +236,26 @@ fun DetailScreen(
                 )
             }
             Spacer(Modifier.height(6.dp))
+            // 有本地书时显示精确的续传提示；否则给通用说明
+            if ((owned ?: 0L) > 0) {
+                Text(
+                    text = "本书已下载 $owned 章，下载时自动跳过已有章节",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = g.accentBottom,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(Modifier.height(4.dp))
+            } else {
+                Text(
+                    text = "已下载过的章节会自动跳过，不会重复下载",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+            }
             val total = detail.chapterCount ?: 0
             Text(
                 text = "共 $total 章。" + (parseRangeHint(rangeText, total) ?: "留空则全部下载"),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "已下载过的章节会自动跳过，不会重复下载",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

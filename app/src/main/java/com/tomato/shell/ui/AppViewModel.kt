@@ -242,7 +242,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- 详情页操作 ----
 
-    /** 打开某本书的详情页（并拉取详情） */
+    /** 详情页对应书的本地已下载章节数（>0 时详情页显示续传提示） */
+    private val _detailOwned = MutableStateFlow<Long?>(null)
+    val detailOwned: StateFlow<Long?> = _detailOwned.asStateFlow()
+
+    /** 打开某本书的详情页（并拉取详情）。从「更新」按钮进入时，带出本地已下载章数。 */
     fun openDetail(bookId: String) {
         _openBookId.value = bookId
         _detail.value = null
@@ -250,6 +254,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _detailError.value = null
         _detailLoading.value = true
         viewModelScope.launch {
+            _detailOwned.value = withContext(Dispatchers.IO) {
+                scanLocalBooks().firstOrNull { it.bookId == bookId }?.localChapters
+            }
             val d = withContext(Dispatchers.IO) { api.preview(bookId) }
             _detail.value = d
             _detailLoading.value = false
@@ -262,6 +269,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _openBookId.value = null
         _detail.value = null
         _detailError.value = null
+        _detailOwned.value = null
     }
 
     fun onRangeChange(t: String) {
@@ -465,27 +473,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** 检查更新后记录的远端最新章节数（bookId -> chapter_count），卡片据此显示「更新」按钮 */
     private val _remoteChapters = MutableStateFlow<Map<String, Long>>(emptyMap())
     val remoteChapters: StateFlow<Map<String, Long>> = _remoteChapters.asStateFlow()
-
-    /**
-     * 对一本已有本地文件的书发起「更新」（增量续传）。
-     *
-     * 引擎创建任务固定用 Resume 模式（downloader.rs）：
-     * 任务启动时 load_existing_status 恢复已下载记录，pending_resume 只下载
-     * status.json 里没有的章节，完成后按全部已下载章节重新打包 EPUB（自动合并）。
-     * 所以这里**不带范围**直接重建任务即可——既追新章节，也顺带补上当初范围下载缺的部分。
-     */
-    fun updateBook(job: Job) {
-        val bookId = job.bookId ?: return
-        viewModelScope.launch {
-            try {
-                withContext(Dispatchers.IO) { api.createJob(bookId) }
-                // 立即刷新：引擎任务（Resume）会顶掉同名的本地条目，显示下载进度
-                _jobs.value = mergeJobs(api.jobs())
-            } catch (e: Exception) {
-                _updateResult.value = "发起更新失败: ${e.message}"
-            }
-        }
-    }
 
     // ---- 本地已下载书籍（持久化） ----
 

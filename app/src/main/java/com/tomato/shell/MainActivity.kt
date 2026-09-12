@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -50,14 +51,20 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +76,7 @@ import com.tomato.shell.ui.AppViewModel
 import com.tomato.shell.ui.screens.DetailScreen
 import com.tomato.shell.ui.screens.DownloadScreen
 import com.tomato.shell.ui.screens.SearchScreen
+import com.tomato.shell.ui.screens.SettingsScreen
 import com.tomato.shell.ui.theme.AccentButton
 import com.tomato.shell.ui.theme.AuroraBackground
 import com.tomato.shell.ui.theme.GlassButton
@@ -118,7 +126,19 @@ private fun App(sharedText: androidx.compose.runtime.MutableState<String?>) {
     val engineStarting by vm.engineStarting.collectAsState()
     val engineVersion by vm.engineVersion.collectAsState()
     val openBookId by vm.openBookId.collectAsState()
+    val detailOwned by vm.detailOwned.collectAsState()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val appVersion = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "?"
+    }
+
+    // 详情页拦截系统返回键：返回上一个 tab 而不是退出 APP
+    androidx.activity.compose.BackHandler(enabled = openBookId != null) {
+        vm.closeDetail()
+    }
 
     // 消费外部分享的文本（分享到本 APP 的番茄链接/ID → 直接进详情页）
     LaunchedEffect(sharedText.value) {
@@ -152,23 +172,31 @@ private fun App(sharedText: androidx.compose.runtime.MutableState<String?>) {
                 },
                 downloading = creating,
                 error = detailError,
+                owned = detailOwned,
                 onBack = { vm.closeDetail() },
             )
         } else {
             Column(Modifier.fillMaxSize().statusBarsPadding()) {
                 Box(Modifier.weight(1f)) {
                     when (selectedTab) {
-                        // 主页：大标题 + 引擎状态大卡 + 搜索（未就绪时页内提示启动进度）
+                        // 主页：搜索（未就绪时页内提示启动进度）
                         0 -> SearchScreen(
                             vm = vm,
                             onBookClick = { vm.openDetail(it) },
+                            engineReady = engineReady,
+                            engineStarting = engineStarting,
+                        )
+                        // 下载列表读本地磁盘，引擎未就绪也照常可用
+                        1 -> DownloadScreen(vm = vm)
+                        // 引擎状态大卡 + 自升级入口
+                        2 -> SettingsScreen(
+                            vm = vm,
                             onStatusClick = { showEngineSheet = true },
                             engineReady = engineReady,
                             engineStarting = engineStarting,
                             engineVersion = engineVersion,
+                            appVersion = appVersion,
                         )
-                        // 下载列表读本地磁盘，引擎未就绪也照常可用
-                        1 -> DownloadScreen(vm = vm)
                     }
                 }
                 // 通栏纸底栏：键盘弹出时收起
@@ -188,37 +216,38 @@ private fun App(sharedText: androidx.compose.runtime.MutableState<String?>) {
     }
 }
 
+/** 统一页标题：所有页面同字号（28sp Bold）同边距 */
+@Composable
+internal fun PageTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        modifier = modifier.padding(top = 10.dp),
+    )
+}
+
 /**
- * 主页顶部：超大应用标题 + 引擎状态大卡（Clash Meta「运行中」卡式样）。
- * 就绪=主色底白字；启动中/失败=灰底。点卡片打开引擎升级浮层。
+ * 引擎状态大卡（Clash Meta「运行中」卡式样）。
+ * 就绪=主色底白字；启动中/失败=灰底。点卡片打开引擎升级浮层。放在「设置」页。
  */
 @Composable
-internal fun HomeHeader(ready: Boolean, starting: Boolean, version: String, onStatusClick: () -> Unit) {
+internal fun StatusCard(ready: Boolean, starting: Boolean, version: String, onStatusClick: () -> Unit) {
     val g = LocalGlassColors.current
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            text = "番茄下载",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 20.dp, top = 10.dp),
-        )
-        Spacer(Modifier.height(16.dp))
-
-        val cardColor = when {
-            ready -> g.accentTop
-            else -> Color(0xFF8E9196)
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .clip(GlassShape.card)
-                .background(cardColor)
-                .clickable(onClick = onStatusClick)
-                .padding(horizontal = 18.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+    val cardColor = when {
+        ready -> g.accentTop
+        else -> Color(0xFF8E9196)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(GlassShape.card)
+            .background(cardColor)
+            .clickable(onClick = onStatusClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
             when {
                 starting -> CircularProgressIndicator(
                     modifier = Modifier.size(30.dp),
@@ -260,7 +289,6 @@ internal fun HomeHeader(ready: Boolean, starting: Boolean, version: String, onSt
                 )
             }
         }
-    }
 }
 
 @Composable
@@ -298,6 +326,7 @@ private fun GlassNavBar(selected: Int, onSelect: (Int) -> Unit, modifier: Modifi
         Row(Modifier.navigationBarsPadding()) {
             NavItem("搜索", Icons.Default.Search, selected == 0) { onSelect(0) }
             NavItem("下载", Icons.Default.Download, selected == 1) { onSelect(1) }
+            NavItem("设置", Icons.Default.Settings, selected == 2) { onSelect(2) }
         }
     }
 }
@@ -310,19 +339,22 @@ private fun RowScope.NavItem(label: String, icon: ImageVector, selected: Boolean
         modifier = Modifier
             .weight(1f)
             .clickable(onClick = onClick)
+            // 下划线用 drawBehind 画，不占布局空间——保证选中和未选中项等高
+            .drawBehind {
+                if (selected) {
+                    val w = 20.dp.toPx()
+                    val h = 3.dp.toPx()
+                    drawRoundRect(
+                        color = g.accentBottom,
+                        topLeft = Offset((size.width - w) / 2f, 0f),
+                        size = Size(w, h),
+                        cornerRadius = CornerRadius(h / 2f),
+                    )
+                }
+            }
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (selected) {
-            Box(
-                Modifier
-                    .width(20.dp)
-                    .height(3.dp)
-                    .clip(GlassShape.pill)
-                    .background(g.accentBottom)
-            )
-            Spacer(Modifier.height(4.dp))
-        }
         Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
         Text(label, style = MaterialTheme.typography.labelSmall, color = tint)
     }

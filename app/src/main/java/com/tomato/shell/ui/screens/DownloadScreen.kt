@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.tomato.shell.data.Job
+import com.tomato.shell.PageTitle
 import com.tomato.shell.ui.AppViewModel
 import com.tomato.shell.ui.theme.AccentButton
 import com.tomato.shell.ui.theme.GlassButton
@@ -73,12 +74,33 @@ fun DownloadScreen(vm: AppViewModel) {
             .imePadding()
             .padding(horizontal = 20.dp)
     ) {
-        // 标题行（检查更新移到右下角 FAB）
-        Text(
-            text = "下载任务",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-        )
+        // 标题行：检查更新与标题垂直居中对齐，右缘与卡片对齐
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PageTitle("下载任务", Modifier.weight(1f))
+            GlassPanel(
+                shape = GlassShape.pill,
+                shadowElevation = 0.dp,
+                onClick = if (!scanning) { { vm.checkUpdates() } } else null,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (scanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(13.dp),
+                            strokeWidth = 2.dp,
+                            color = g.accentBottom,
+                        )
+                    }
+                    Text(
+                        text = if (scanning) "扫描中" else "检查更新",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
+        }
 
         // 更新扫描结果
         updateResult?.let {
@@ -149,7 +171,7 @@ fun DownloadScreen(vm: AppViewModel) {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     // 底部给 FAB 留出空间，最后一张卡能完整滚出来
-                    contentPadding = PaddingValues(bottom = 84.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(jobs, key = { it.id }) { job ->
@@ -158,7 +180,8 @@ fun DownloadScreen(vm: AppViewModel) {
                             // 与检查更新同一判定：远端章节数 > 本地实际拥有 → 显示「更新」
                             canUpdate = job.local && job.bookId != null &&
                                 (remoteChapters[job.bookId] ?: 0L) > (job.localChapters ?: 0L),
-                            onUpdate = { vm.updateBook(job) },
+                            // 「更新」= 进详情页自选范围（引擎 Resume 会跳过已下载章节）
+                            onUpdate = { job.bookId?.let { vm.openDetail(it) } },
                             onCancel = { vm.cancelJob(job.id) },
                             onOpen = { vm.openDownloadedBook(job) },
                         )
@@ -166,33 +189,6 @@ fun DownloadScreen(vm: AppViewModel) {
                 }
             }
 
-            // 右下角 FAB：检查更新（Clash Meta 代理页延迟测试钮式样）
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 16.dp, end = 4.dp)
-                    .size(56.dp)
-                    .shadow(4.dp, CircleShape, clip = false)
-                    .clip(CircleShape)
-                    .background(g.accentTop)
-                    .clickable(enabled = !scanning) { vm.checkUpdates() },
-                contentAlignment = Alignment.Center,
-            ) {
-                if (scanning) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.5.dp,
-                        color = Color.White,
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "检查更新",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
         }
     }
 }
@@ -319,8 +315,8 @@ private fun LocalBookBody(job: Job, canUpdate: Boolean, onUpdate: () -> Unit, on
                     model = cover,
                     contentDescription = job.title,
                     modifier = Modifier
-                        .size(width = 52.dp, height = 70.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .size(width = 76.dp, height = 104.dp)
+                        .clip(RoundedCornerShape(10.dp)),
                     contentScale = ContentScale.Crop,
                 )
                 Spacer(Modifier.width(12.dp))
@@ -346,34 +342,6 @@ private fun LocalBookBody(job: Job, canUpdate: Boolean, onUpdate: () -> Unit, on
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                // 已下载 N 章（数字红色高亮）/ 字数 / 文件大小
-                val owned = job.localChapters ?: 0L
-                val meta2 = buildAnnotatedString {
-                    var sep = ""
-                    if (owned > 0) {
-                        append("已下载 ")
-                        withStyle(SpanStyle(color = g.accentBottom, fontWeight = FontWeight.Bold)) {
-                            append("$owned")
-                        }
-                        append(" 章")
-                        sep = " · "
-                    }
-                    job.wordCount?.takeIf { it > 0 }?.let {
-                        append(sep); append("${it / 10000} 万字"); sep = " · "
-                    }
-                    job.localSize?.takeIf { it > 0 }?.let {
-                        append(sep); append(formatSize(it))
-                    }
-                }
-                if (meta2.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = meta2,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
                     )
                 }
                 // 最新章节（灰）
